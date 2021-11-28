@@ -39,22 +39,38 @@ contract PollutionDataContract is ChainlinkClient, KeeperCompatibleInterface {
 
     mapping(string => mapping(string => uint)) public locationToTokenID;
 
-    // struct locationStruct {
-    //     string lan;
-    //     string lat;
-    // } 
-
-    // mapping(uint256 => locationStruct) public tokenIDToLocation;
+    mapping(uint256 => string) public tokenIDToLat;
+    mapping(uint256 => string) public tokenIDToLon;
 
     address public tokenAddr;
+    address public creator;
+
+    event RequestMultipleFulfilled(
+        bytes32 requestId_,
+        uint256 aqi_,
+        uint256 no2_,
+        uint256 o3_,
+        uint256 pm10_,
+        uint256 pm2_5_,
+        address indexed requester_
+    );
+
+    event coordinatesAndAddress(
+        bytes32 requestId_,
+        string lat_,
+        string lon_,
+        uint256 timestamp_,
+        address indexed requester_
+    );
 
     constructor(address _tokenAddr) { 
+        creator = msg.sender;
         tokenAddr = _tokenAddr;
         setPublicChainlinkToken();
         oracle = 0xd57018342B19Bc74dD6f5Fa8B73c934694b3aC10;
         jobId = "c7ef2e55f68e45b4b98219b8f2854189";
         fee = 0;
-        interval = 1 minutes; //needs to change
+        interval = 5 minutes; //needs to change
         lastTimeStamp = block.timestamp;
     }
 
@@ -68,11 +84,12 @@ contract PollutionDataContract is ChainlinkClient, KeeperCompatibleInterface {
         creatorArray.push(msg.sender);
 
         tokenCounter += 1;
-        // tokenIDToLocation[tokenCounter] = locationStruct(_lat, _lon);
+        tokenIDToLat[tokenCounter] = _lat;
+        tokenIDToLon[tokenCounter] = _lon;
         locationToTokenID[_lat][_lon] = tokenCounter;
 
         //mint token initially. Have not decided on who should own these tokens. At this point its just this contract's address
-        MyToken(tokenAddr).mint(address(this), tokenCounter, 0, "");
+        MyToken(tokenAddr).mint(creator, tokenCounter, 0, "");
 
         requestMultipleParametersFromUser(_lat, _lon, msg.sender);
     }
@@ -143,28 +160,12 @@ contract PollutionDataContract is ChainlinkClient, KeeperCompatibleInterface {
 
         // Sends the request
         requestId = sendChainlinkRequestTo(oracle, req, fee);
+        
         toLat[requestId] = _lat;
         toLon[requestId] = _lon;
         toAddresses[requestId] = _sender;
+        toTokenID[requestId] = locationToTokenID[_lat][_lon];
     }
-
-    event RequestMultipleFulfilled(
-        bytes32 requestId_,
-        uint256 aqi_,
-        uint256 no2_,
-        uint256 o3_,
-        uint256 pm10_,
-        uint256 pm2_5_,
-        address indexed requester_
-    );
-
-    event coordinatesAndAddress(
-        bytes32 requestId_,
-        string lat_,
-        string lon_,
-        uint256 timestamp_,
-        address indexed requester_
-    );
 
     function fulfillMultipleParameters(
         bytes32 requestId,
@@ -191,11 +192,27 @@ contract PollutionDataContract is ChainlinkClient, KeeperCompatibleInterface {
             toAddresses[requestId]
         );
 
-        //GTAX minted on some condition
-        //more if statements are needed for other gases
+        //GTAX minted on trigger conditions
+        uint gTaxAmount = 0;
 
         if(aqi_response > 3) {
-            MyToken(tokenAddr).mint(address(this), toTokenID[requestId], 1, "");
+            gTaxAmount += 1;
+        }
+        if(no2_response > 200 * 100000000) {
+            gTaxAmount += 1;
+        }
+        if(o3_response > 180 * 100000000) {
+            gTaxAmount += 1;
+        }
+        if(pm10_response > 90 * 100000000) {
+            gTaxAmount += 1;
+        }
+        if(pm2_5_response > 55 * 100000000) {
+            gTaxAmount += 1;
+        }
+
+        if(gTaxAmount > 0) {
+            MyToken(tokenAddr).mint(creator, toTokenID[requestId], gTaxAmount, "");
         }
         
         counter = counter + 1;
