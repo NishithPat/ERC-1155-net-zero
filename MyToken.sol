@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.7;
 
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC1155/ERC1155.sol";
 import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/AccessControl.sol";
@@ -10,7 +10,7 @@ contract MyToken is ERC1155, AccessControl, ERC1155Burnable, ERC1155Supply {
     bytes32 public constant URI_SETTER_ROLE = keccak256("URI_SETTER_ROLE");
     bytes32 public constant MINTER_ROLE = keccak256("MINTER_ROLE");
 
-    constructor() ERC1155("https://vpwc0bspea0u.usemoralis.com") {
+    constructor() ERC1155("") {
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _setupRole(URI_SETTER_ROLE, msg.sender);
         _setupRole(MINTER_ROLE, msg.sender);
@@ -60,18 +60,3 @@ contract MyToken is ERC1155, AccessControl, ERC1155Burnable, ERC1155Supply {
         return super.supportsInterface(interfaceId);
     }
 }
-
-contract Caller {
-    address contr;
-
-    constructor(address _contr) {
-        contr = _contr;
-    }
-
-    function minter(address account, uint256 id, uint256 amount)
-        public
-    {
-        MyToken(contr).mint(account, id, amount, "");
-    }
-}
-
